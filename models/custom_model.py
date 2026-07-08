@@ -1,4 +1,4 @@
-from odoo import models, fields
+from odoo import models, fields, api
 
 # 1. الموديل الجديد الخاص بنوع العقار (شقة، فيلا...)
 class EstatePropertyType(models.Model):
@@ -8,7 +8,7 @@ class EstatePropertyType(models.Model):
     name = fields.Char(string="Name", required=True)
 
 
-# 2. الموديل الرئيسي بعد إضافة جميع علاقات شابتر 7
+# 2. الموديل الرئيسي بعد إضافة علاقات شابتر 7 وحسابات شابتر 8
 class EstateProperty(models.Model):
     _name = "estate.property"
     _description = "Real Estate Property"
@@ -55,3 +55,30 @@ class EstateProperty(models.Model):
     seller_id = fields.Many2one("res.users", string="Salesperson", default=lambda self: self.env.user)
     tag_ids = fields.Many2many("estate.property.tag", string="Tags")
     offer_ids = fields.One2many("estate.property.offer", "property_id", string="Offers")
+
+    # ---- حقول شابتر 8 المحسوبة ----
+    total_area = fields.Integer(string="Total Area", compute="_compute_total_area")
+    best_price = fields.Float(string="Best Offer", compute="_compute_best_price")
+
+    # 1. دالة حساب المساحة الإجمالية (مساحة المعيشة + مساحة الحديقة)
+    @api.depends("living_area", "garden_area")
+    def _compute_total_area(self):
+        for record in self:
+            record.total_area = record.living_area + record.garden_area
+
+    # 2. دالة حساب أعلى عرض سعر مستلم باستخدام الـ mapped
+    @api.depends("offer_ids.price")
+    def _compute_best_price(self):
+        for record in self:
+            prices = record.offer_ids.mapped("price")
+            record.best_price = max(prices) if prices else 0.0
+
+    # 3. دالة الـ Onchange الخاصة بالحديقة لمساعدة المستخدم في إدخال البيانات تلقائياً
+    @api.onchange("garden")
+    def _onchange_garden(self):
+        if self.garden:
+            self.garden_area = 10
+            self.garden_orientation = "north"
+        else:
+            self.garden_area = 0
+            self.garden_orientation = False
