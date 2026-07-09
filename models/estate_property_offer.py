@@ -34,3 +34,4 @@ class EstatePropertyOffer(models.Model):
                 record.validity = delta.days
             else:
                 record.validity = 7
+
