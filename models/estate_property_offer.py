@@ -14,19 +14,18 @@ class EstatePropertyOffer(models.Model):
     partner_id = fields.Many2one("res.partner", string="Partner", required=True)
     property_id = fields.Many2one("estate.property", string="Property", required=True)
 
-    # ---- حقول شابتر 8 الجديدة للعروض ----
+    # ---- Chapter 8 Offer Validity Fields ----
     validity = fields.Integer(string="Validity (Days)", default=7)
     date_deadline = fields.Date(string="Deadline", compute="_compute_date_deadline", inverse="_inverse_date_deadline")
 
-    # 1. دالة حساب تاريخ انتهاء الصلاحية بناءً على تاريخ الإنشاء وأيام الصلاحية
+    # Compute deadline date based on creation date and validity days
     @api.depends("create_date", "validity")
     def _compute_date_deadline(self):
         for record in self:
-            # استخدام تاريخ اليوم كـ fallback في حال لم يتم حفظ السجل في قاعدة البيانات بعد لحماية السيستم من الانهيار
             base_date = record.create_date.date() if record.create_date else fields.Date.today()
             record.date_deadline = base_date + timedelta(days=record.validity)
 
-    # 2. الدالة العكسية لتحديث أيام الصلاحية عند تغيير تاريخ الانتهاء يدوياً من المستخدم
+    # Recalculate validity days inversely when deadline date is manually updated
     def _inverse_date_deadline(self):
         for record in self:
             base_date = record.create_date.date() if record.create_date else fields.Date.today()
