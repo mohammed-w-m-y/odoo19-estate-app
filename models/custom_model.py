@@ -1,4 +1,6 @@
 from odoo import models, fields, api
+from odoo.exceptions import UserError, ValidationError
+from odoo.tools.float_utils import float_compare, float_is_zero
 
 class EstateProperty(models.Model):
     _name = "estate.property"
@@ -51,6 +53,12 @@ class EstateProperty(models.Model):
     total_area = fields.Integer(string="Total Area", compute="_compute_total_area")
     best_price = fields.Float(string="Best Offer", compute="_compute_best_price")
 
+    # ---- Chapter 10 SQL Constraints ----
+    _sql_constraints = [
+        ('check_expected_price', 'CHECK(expected_price > 0)', 'The expected price must be strictly positive.'),
+        ('check_selling_price', 'CHECK(selling_price >= 0)', 'The selling price must be positive.')
+    ]
+
     # Calculate total area as the sum of living area and garden area
     @api.depends("living_area", "garden_area")
     def _compute_total_area(self):
@@ -74,3 +82,32 @@ class EstateProperty(models.Model):
             self.garden_area = 0
             self.garden_orientation = False
 
+    # ---- Chapter 9 Action Buttons ----
+
+    def action_set_sold(self):
+        """Set the property state as Sold unless it is Canceled"""
+        for record in self:
+            if record.state == 'canceled':
+                raise UserError("A canceled property cannot be set as sold!")
+            record.state = 'sold'
+        return True
+
+    def action_set_canceled(self):
+        """Set the property state as Canceled unless it is Sold"""
+        for record in self:
+            if record.state == 'sold':
+                raise UserError("A sold property cannot be canceled!")
+            record.state = 'canceled'
+        return True
+
+    # ---- Chapter 10 Python Constraints ----
+    @api.constrains('selling_price', 'expected_price')
+    def _check_selling_price(self):
+        """Ensure selling price is at least 90% of expected price (only when selling price is set)"""
+        for record in self:
+            # Only perform check if selling price is not zero
+            if not float_is_zero(record.selling_price, precision_rounding=0.01):
+                limit_price = record.expected_price * 0.90
+                # Use float_compare for reliable floating-point comparisons
+                if float_compare(record.selling_price, limit_price, precision_rounding=0.01) < 0:
+                    raise ValidationError("The selling price cannot be lower than 90% of the expected price!")

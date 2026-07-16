@@ -2,7 +2,7 @@
     'name': 'Estate',
     'author': 'Mohamed Wallid',
     'category': 'Real Estate',
-    'version': '19.0.1.0.0',
+    'version': '19.0.1.0.1',
     'summary': 'Manage real estate advertisements',
     'depends': ['base','web'],
     'data': [
@@ -13,3 +13,4 @@
     'installable': True,
     'application': True,
 }
+
