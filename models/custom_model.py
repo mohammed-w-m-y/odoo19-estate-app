@@ -57,15 +57,14 @@ class EstateProperty(models.Model):
     total_area = fields.Integer(string="Total Area", compute="_compute_total_area")
     best_price = fields.Float(string="Best Offer", compute="_compute_best_price")
 
-    # ---- Chapter 10: SQL Constraints ----
+    # ---- Chapter 10: SQL Constraints (The Modern Way for Odoo 19) ----
     _check_expected_price = models.Constraint(
-        "CHECK(expected_price > 0)",
-        "The expected price must be strictly positive."
+        'CHECK(expected_price > 0)',
+        'The expected price must be strictly positive.'
     )
-
     _check_selling_price = models.Constraint(
-        "CHECK(selling_price >= 0)",
-        "The selling price must be positive."
+        'CHECK(selling_price >=0)',
+        'The selling price must be positive.'
     )
 
     # Calculate total area as the sum of living area and garden area
@@ -111,7 +110,7 @@ class EstateProperty(models.Model):
 
     # ---- Chapter 10: Python Constraints ----
     @api.constrains('selling_price', 'expected_price')
-    def _check_selling_price(self):
+    def _check_selling_price_positive(self):
         """Ensure selling price is at least 90% of expected price (only when selling price is set)"""
         for record in self:
             if not float_is_zero(record.selling_price, precision_rounding=0.01):
