@@ -15,4 +15,3 @@
     <menuitem id="estate_menu_property_tag" name="Property Tags" parent="estate_menu_config" action="estate_property_tag_action" sequence="2"/>
 </odoo>
 
-
