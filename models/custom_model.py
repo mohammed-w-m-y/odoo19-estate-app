@@ -1,8 +1,14 @@
 from odoo import models, fields, api
+from odoo.exceptions import UserError, ValidationError
+from odoo.tools.float_utils import float_compare, float_is_zero
+
 
 class EstateProperty(models.Model):
     _name = "estate.property"
     _description = "Real Estate Property"
+
+    # ---- Chapter 11: List Ordering ----
+    _order = "id desc"
 
     name = fields.Char(string="Title", required=True)
     description = fields.Text(string="Description")
@@ -40,16 +46,26 @@ class EstateProperty(models.Model):
         ('canceled', 'Canceled')
     ], string="Status", required=True, copy=False, default='new')
 
-    # ---- Chapter 7 Relational Fields ----
+    # ---- Chapter 7: Relational Fields ----
     property_type_id = fields.Many2one("estate.property.type", string="Property Type")
     buyer_id = fields.Many2one("res.partner", string="Buyer", copy=False)
     seller_id = fields.Many2one("res.users", string="Salesperson", default=lambda self: self.env.user)
     tag_ids = fields.Many2many("estate.property.tag", string="Tags")
     offer_ids = fields.One2many("estate.property.offer", "property_id", string="Offers")
 
-    # ---- Chapter 8 Computed Fields ----
+    # ---- Chapter 8: Computed Fields ----
     total_area = fields.Integer(string="Total Area", compute="_compute_total_area")
     best_price = fields.Float(string="Best Offer", compute="_compute_best_price")
+
+    # ---- Chapter 10: SQL Constraints (The Modern Way for Odoo 19) ----
+    _check_expected_price = models.Constraint(
+        'CHECK(expected_price > 0)',
+        'The expected price must be strictly positive.'
+    )
+    _check_selling_price = models.Constraint(
+        'CHECK(selling_price >=0)',
+        'The selling price must be positive.'
+    )
 
     # Calculate total area as the sum of living area and garden area
     @api.depends("living_area", "garden_area")
@@ -74,3 +90,38 @@ class EstateProperty(models.Model):
             self.garden_area = 0
             self.garden_orientation = False
 
+    # ---- Chapter 9: Action Buttons ----
+
+    def action_set_sold(self):
+        """Set the property state as Sold unless it is Canceled"""
+        for record in self:
+            if record.state == 'canceled':
+                raise UserError("A canceled property cannot be set as sold!")
+            record.state = 'sold'
+        return True
+
+    def action_set_canceled(self):
+        """Set the property state as Canceled unless it is Sold"""
+        for record in self:
+            if record.state == 'sold':
+                raise UserError("A sold property cannot be canceled!")
+            record.state = 'canceled'
+        return True
+
+    # ---- Chapter 10: Python Constraints ----
+    @api.constrains('selling_price', 'expected_price')
+    def _check_selling_price_positive(self):
+        """Ensure selling price is at least 90% of expected price (only when selling price is set)"""
+        for record in self:
+            if not float_is_zero(record.selling_price, precision_rounding=0.01):
+                limit_price = record.expected_price * 0.90
+                if float_compare(record.selling_price, limit_price, precision_rounding=0.01) < 0:
+                    raise ValidationError("The selling price cannot be lower than 90% of the expected price!")
+
+    # ---- Chapter 12: CRUD Methods Override ----
+    @api.ondelete(at_uninstall=False)
+    def _check_property_deletion(self):
+        """Prevent deletion of a property if its state is not 'New' or 'Canceled'"""
+        for record in self:
+            if record.state not in ('new', 'canceled'):
+                raise UserError("You cannot delete a property that is not New or Canceled!")
